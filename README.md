@@ -42,22 +42,54 @@ i) Using Averaging Filter
 ```Python
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
-image1=cv2.imread("cad.jpeg")
-image2=cv2.cvtColor(image1,cv2.COLOR_BGR2RGB)
-kernel=np.ones((11,11),np.float32)/169
-image3=cv2.filter2D(image2,-1,kernel)
-plt.figure(figsize=(9,9))
-plt.subplot(1,2,1)
-plt.imshow(image2)
-plt.title("Original Image")
-plt.axis("off")
-plt.subplot(1,2,2)
-plt.imshow(image3)
-plt.title("Average Filter Image")
-plt.axis("off")
+import matplotlib.pyplot as plt
+
+image = cv2.imread('Fish.jpg', cv2.IMREAD_GRAYSCALE)
+salt_prob = 0.05  
+pepper_prob = 0.05  
+
+noisy_image = np.copy(image)
+
+num_salt = np.ceil(salt_prob * image.size)
+coords_salt = [np.random.randint(0, i, int(num_salt)) for i in image.shape]
+noisy_image[tuple(coords_salt)] = 255
+
+num_pepper = np.ceil(pepper_prob * image.size)
+coords_pepper = [np.random.randint(0, i, int(num_pepper)) for i in image.shape]
+noisy_image[tuple(coords_pepper)] = 0
+
+filtered_image = np.zeros_like(noisy_image)  
+height, width = noisy_image.shape
+
+for i in range(1, height - 1):
+    for j in range(1, width - 1):
+        neighborhood = noisy_image[i - 1:i + 2, j - 1:j + 2]
+        
+        filtered_value = np.mean(neighborhood)
+        
+        filtered_image[i, j] = filtered_value
+
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 3, 1)
+plt.imshow(image, cmap='gray')
+plt.title('Original Image')
+plt.axis('off')
+
+plt.subplot(1, 3, 2)
+plt.imshow(noisy_image, cmap='gray')
+plt.title('Noisy Image (Salt-and-Pepper)')
+plt.axis('off')
+
+plt.subplot(1, 3, 3)
+plt.imshow(filtered_image, cmap='gray')
+plt.title('Filtered Image (Manual Box Filter 3x3)')
+plt.axis('off')
+
+plt.tight_layout()
 plt.show()
+
 
 
 
@@ -65,18 +97,66 @@ plt.show()
 ```
 ii) Using Weighted Averaging Filter
 ```Python
-kernel1=np.array([[1,2,1],[2,4,2],[1,2,1]])/16
-image3=cv2.filter2D(image2,-1,kernel1)
-plt.figure(figsize=(9,9))
-plt.subplot(1,2,1)
-plt.imshow(image2)
-plt.title("Original Image")
-plt.axis("off")
-plt.subplot(1,2,2)
-plt.imshow(image3)
-plt.title("Weighted Average Filter Image")
-plt.axis("off")
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+image = cv2.imread('Fish.jpg', cv2.IMREAD_GRAYSCALE)
+
+salt_prob = 0.05  
+pepper_prob = 0.05  
+
+
+noisy_image = np.copy(image)
+
+num_salt = np.ceil(salt_prob * image.size)
+coords_salt = [np.random.randint(0, i, int(num_salt)) for i in image.shape]
+noisy_image[tuple(coords_salt)] = 255
+
+num_pepper = np.ceil(pepper_prob * image.size)
+coords_pepper = [np.random.randint(0, i, int(num_pepper)) for i in image.shape]
+noisy_image[tuple(coords_pepper)] = 0
+
+kernel = np.array([[1, 2, 1],
+                   [2, 4, 2],
+                   [1, 2, 1]]) / 16.0  
+
+image_height, image_width = noisy_image.shape
+kernel_size = kernel.shape[0]  
+pad = kernel_size // 2
+
+padded_image = np.pad(noisy_image, pad, mode='constant', constant_values=0)
+
+filtered_image = np.zeros_like(noisy_image)
+
+for i in range(pad, image_height + pad):
+    for j in range(pad, image_width + pad):
+        roi = padded_image[i - pad:i + pad + 1, j - pad:j + pad + 1]
+        
+        filtered_value = np.sum(roi * kernel)
+        
+        filtered_image[i - pad, j - pad] = np.clip(filtered_value, 0, 255)
+
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 3, 1)
+plt.imshow(image, cmap='gray')
+plt.title('Original Image')
+plt.axis('off')
+
+plt.subplot(1, 3, 2)
+plt.imshow(noisy_image, cmap='gray')
+plt.title('Noisy Image (Salt-and-Pepper)')
+plt.axis('off')
+
+plt.subplot(1, 3, 3)
+plt.imshow(filtered_image, cmap='gray')
+plt.title('Filtered Image (Manual Weighted Avg)')
+plt.axis('off')
+
+plt.tight_layout()
 plt.show()
+
 
 
 
@@ -89,16 +169,55 @@ plt.show()
 iii) Using Gaussian Filter
 ```Python
 
-gaussian_blur=cv2.GaussianBlur(image2,(33,33),0,0)
-plt.figure(figsize=(9,9))
-plt.subplot(1,2,1)
-plt.imshow(image2)
-plt.title("Original Image")
-plt.axis("off")
-plt.subplot(1,2,2)
-plt.imshow(gaussian_blur)
-plt.title("Gaussian Blur")
-plt.axis("off")
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+image = cv2.imread('Fish.jpg', cv2.IMREAD_GRAYSCALE)
+
+blurred_image = cv2.GaussianBlur(image, (3, 3), 0)
+
+laplacian_kernel = np.array([[0, -1, 0],
+                             [-1, 4, -1],
+                             [0, -1, 0]])
+
+image_height, image_width = blurred_image.shape
+kernel_height, kernel_width = laplacian_kernel.shape
+pad_height = kernel_height // 2
+pad_width = kernel_width // 2
+
+padded_image = np.pad(blurred_image, ((pad_height, pad_height), (pad_width, pad_width)), mode='constant', constant_values=0)
+
+laplacian_image = np.zeros_like(blurred_image)
+
+for i in range(image_height):
+    for j in range(image_width):
+        region = padded_image[i:i + kernel_height, j:j + kernel_width]
+        laplacian_value = np.sum(region * laplacian_kernel)
+        laplacian_image[i, j] = laplacian_value
+
+laplacian_image = np.clip(laplacian_image, 0, 255).astype(np.uint8)
+
+sharpened_image = cv2.add(image, laplacian_image)
+
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 3, 1)
+plt.imshow(image, cmap='gray')
+plt.title('Original Image')
+plt.axis('off')
+
+plt.subplot(1, 3, 2)
+plt.imshow(laplacian_image, cmap='gray')
+plt.title('Laplacian Filtered Image')
+plt.axis('off')
+
+plt.subplot(1, 3, 3)
+plt.imshow(sharpened_image, cmap='gray')
+plt.title('Sharpened Image')
+plt.axis('off')
+
+plt.tight_layout()
 plt.show()
 
 
@@ -112,16 +231,55 @@ iv)Using Median Filter
 ```Python
 
 
-median=cv2.medianBlur(image2,13)
-plt.figure(figsize=(9,9))
-plt.subplot(1,2,1)
-plt.imshow(image2)
-plt.title("Original Image")
-plt.axis("off")
-plt.subplot(1,2,2)
-plt.imshow(median)
-plt.title("Median Blur")
-plt.axis("off")
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+image = cv2.imread('Fish.jpg', cv2.IMREAD_GRAYSCALE)
+
+salt_prob = 0.05  
+pepper_prob = 0.05  
+
+noisy_image = np.copy(image)
+
+num_salt = np.ceil(salt_prob * image.size)
+coords_salt = [np.random.randint(0, i, int(num_salt)) for i in image.shape]
+noisy_image[tuple(coords_salt)] = 255
+
+num_pepper = np.ceil(pepper_prob * image.size)
+coords_pepper = [np.random.randint(0, i, int(num_pepper)) for i in image.shape]
+noisy_image[tuple(coords_pepper)] = 0
+
+filtered_image = np.zeros_like(noisy_image)  # Create an empty output image
+
+height, width = noisy_image.shape
+
+for i in range(1, height - 1):
+    for j in range(1, width - 1):
+        neighborhood = noisy_image[i - 1:i + 2, j - 1:j + 2]
+        
+        median_value = np.median(neighborhood)
+        
+        filtered_image[i, j] = median_value
+
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 3, 1)
+plt.imshow(image, cmap='gray')
+plt.title('Original Image')
+plt.axis('off')
+
+plt.subplot(1, 3, 2)
+plt.imshow(noisy_image, cmap='gray')
+plt.title('Noisy Image (Salt-and-Pepper)')
+plt.axis('off')
+
+plt.subplot(1, 3, 3)
+plt.imshow(filtered_image, cmap='gray')
+plt.title('Filtered Image (Manual Median Filter)')
+plt.axis('off')
+
+plt.tight_layout()
 plt.show()
 
 
@@ -135,19 +293,57 @@ plt.show()
 i) Using Laplacian Linear Kernal
 ```Python
 
-kernel2=np.array([[-1,-1,-1],[2,-2,1],[2,1,-1]])
-image3=cv2.filter2D(image2,-1,kernel2)
-plt.figure(figsize=(9,9))
-plt.subplot(1,2,1)
-plt.imshow(image2)
-plt.title("Original Image")
-plt.axis("off")
-plt.subplot(1,2,2)
-plt.imshow(image3)
-plt.title("Laplacian Kernel")
-plt.axis("off")
-plt.show()
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
 
+image = cv2.imread('Fish.jpg', cv2.IMREAD_GRAYSCALE)
+
+blurred_image = cv2.GaussianBlur(image, (3, 3), 0)
+
+laplacian_kernel = np.array([[0, -1, 0],
+                             [-1, 4, -1],
+                             [0, -1, 0]])
+
+image_height, image_width = blurred_image.shape
+kernel_height, kernel_width = laplacian_kernel.shape
+
+pad_height = kernel_height // 2
+pad_width = kernel_width // 2
+
+padded_image = np.pad(blurred_image, ((pad_height, pad_height), (pad_width, pad_width)), mode='constant', constant_values=0)
+
+laplacian_image = np.zeros_like(blurred_image)
+
+for i in range(image_height):
+    for j in range(image_width):
+        region = padded_image[i:i + kernel_height, j:j + kernel_width]
+        laplacian_value = np.sum(region * laplacian_kernel)
+        laplacian_image[i, j] = laplacian_value
+
+laplacian_image = np.clip(laplacian_image, 0, 255).astype(np.uint8)
+
+sharpened_image = cv2.add(image, laplacian_image)
+
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 3, 1)
+plt.imshow(image, cmap='gray')
+plt.title('Original Image')
+plt.axis('off')
+
+plt.subplot(1, 3, 2)
+plt.imshow(laplacian_image, cmap='gray')
+plt.title('Laplacian Filtered Image')
+plt.axis('off')
+
+plt.subplot(1, 3, 3)
+plt.imshow(sharpened_image, cmap='gray')
+plt.title('Sharpened Image')
+plt.axis('off')
+
+plt.tight_layout()
+plt.show()
 
 
 
@@ -158,21 +354,40 @@ plt.show()
 ii) Using Laplacian Operator
 ```Python
 
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
 
+image = cv2.imread('Fish.jpg', cv2.IMREAD_GRAYSCALE)
 
-laplacian=cv2.Laplacian(image2,cv2.CV_64F)
-plt.figure(figsize=(9,9))
-plt.subplot(1,2,1)
-plt.imshow(image2)
-plt.title("Original Image")
-plt.axis("off")
-plt.subplot(1,2,2)
-plt.imshow(laplacian)
-plt.title("Laplacian Operator")
-plt.axis("off")
+blurred_image = cv2.GaussianBlur(image, (3, 3), 0)
+
+laplacian_image = cv2.Laplacian(blurred_image, cv2.CV_64F, ksize=3)
+
+laplacian_image = np.absolute(laplacian_image)
+laplacian_image = np.clip(laplacian_image, 0, 255).astype(np.uint8)
+
+sharpened_image = cv2.add(image, laplacian_image)
+
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 3, 1)
+plt.imshow(image, cmap='gray')
+plt.title('Original Image')
+plt.axis('off')
+
+plt.subplot(1, 3, 2)
+plt.imshow(laplacian_image, cmap='gray')
+plt.title('Laplacian Filtered Image')
+plt.axis('off')
+
+plt.subplot(1, 3, 3)
+plt.imshow(sharpened_image, cmap='gray')
+plt.title('Sharpened Image')
+plt.axis('off')
+
+plt.tight_layout()
 plt.show()
-
-
 
 
 
@@ -183,30 +398,30 @@ plt.show()
 </br>
 
 i) Using Averaging Filter
-<img width="850" height="277" alt="image" src="https://github.com/user-attachments/assets/c2c73a83-a73b-420f-b4a1-ac3387125a7f" />
+<img width="1480" height="443" alt="image" src="https://github.com/user-attachments/assets/bd3648a6-90db-4136-adf1-c5b3273f49b5" />
 
 
 ii)Using Weighted Averaging Filter
-<img width="847" height="272" alt="image" src="https://github.com/user-attachments/assets/27c0da9a-845e-4f9d-bbf0-818bba1fd786" />
+<img width="1485" height="444" alt="image" src="https://github.com/user-attachments/assets/f8ed3578-6593-4e63-b57f-b296b714ea26" />
 
 
 iii)Using Gaussian Filter
-<img width="850" height="288" alt="image" src="https://github.com/user-attachments/assets/9cd5c24c-f38c-47db-ac57-1e2366618152" />
+<img width="1486" height="443" alt="image" src="https://github.com/user-attachments/assets/3cc23e29-df15-4b44-916b-4241f21eaaad" />
 
 
 iv) Using Median Filter
-<img width="857" height="276" alt="image" src="https://github.com/user-attachments/assets/d3909570-16a2-40e7-8a96-00e8f308d9ec" />
+<img width="1484" height="438" alt="image" src="https://github.com/user-attachments/assets/13d08ab3-6e0f-48c1-9148-5be458fbfb2c" />
 
 
 ### 2. Sharpening Filters
 </br>
 
 i) Using Laplacian Kernal
-<img width="850" height="283" alt="image" src="https://github.com/user-attachments/assets/a7d0fc4c-f733-4f27-9900-348532bbbf6f" />
+<img width="1180" height="306" alt="image" src="https://github.com/user-attachments/assets/47a67140-d272-4bf3-b05b-8b44b0d0d214" />
 
 
 ii) Using Laplacian Operator
-<img width="860" height="277" alt="image" src="https://github.com/user-attachments/assets/5717c20c-e4b2-4538-9bdb-2f4dcde28357" />
+<img width="1088" height="302" alt="image" src="https://github.com/user-attachments/assets/21385b13-e563-429b-8276-23a103baa8c5" />
 
 
 ## Result:
